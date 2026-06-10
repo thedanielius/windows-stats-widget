@@ -1,0 +1,70 @@
+:root {
+  font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  user-select: none;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  width: 340px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.stats-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 340px;
+  height: 36px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  align-items: center;
+}
+
+.stat-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  width: 62px;
+  height: 32px;
+}
+
+.stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
+  margin-bottom: 2px;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.6);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.stat-value {
+  color: rgba(255, 255, 255, 0.95);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.stat-graph {
+  display: block;
+  width: 54px;
+  height: 16px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 1px rgba(255, 255, 255, 0.05);
+}
+

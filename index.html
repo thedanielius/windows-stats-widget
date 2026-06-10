@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Taskbar Stats Overlay</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <div class="stats-container">
+      <!-- CPU Column -->
+      <div class="stat-col" id="col-cpu">
+        <div class="stat-header">
+          <span class="stat-label">CPU</span>
+          <span class="stat-value" id="val-cpu">0%</span>
+        </div>
+        <canvas class="stat-graph" id="graph-cpu" width="54" height="16"></canvas>
+      </div>
+
+      <!-- RAM Column -->
+      <div class="stat-col" id="col-ram">
+        <div class="stat-header">
+          <span class="stat-label">RAM</span>
+          <span class="stat-value" id="val-ram">0%</span>
+        </div>
+        <canvas class="stat-graph" id="graph-ram" width="54" height="16"></canvas>
+      </div>
+
+      <!-- DISK Column -->
+      <div class="stat-col" id="col-disk">
+        <div class="stat-header">
+          <span class="stat-label">DSK</span>
+          <span class="stat-value" id="val-disk">0</span>
+        </div>
+        <canvas class="stat-graph" id="graph-disk" width="54" height="16"></canvas>
+      </div>
+
+      <!-- NET Column -->
+      <div class="stat-col" id="col-net">
+        <div class="stat-header">
+          <span class="stat-label">NET</span>
+          <span class="stat-value" id="val-net">0</span>
+        </div>
+        <canvas class="stat-graph" id="graph-net" width="54" height="16"></canvas>
+      </div>
+
+      <!-- GPU Column -->
+      <div class="stat-col" id="col-gpu">
+        <div class="stat-header">
+          <span class="stat-label">GPU</span>
+          <span class="stat-value" id="val-gpu">0%</span>
+        </div>
+        <canvas class="stat-graph" id="graph-gpu" width="54" height="16"></canvas>
+      </div>
+    </div>
+  </body>
+</html>
