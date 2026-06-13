@@ -145,7 +145,7 @@ impl PdhSystemQuery {
             let w_status = PdhGetFormattedCounterValue(self.h_disk_write, PDH_FMT_DOUBLE, None, &mut write_val);
             let disk_write = if w_status == 0 { write_val.Anonymous.doubleValue } else { 0.0 };
 
-            let mut gpu_util = 0.0;
+            let mut gpu_util: f64 = 0.0;
             let mut buffer_size: u32 = 0;
             let mut item_count: u32 = 0;
 
@@ -261,7 +261,11 @@ pub fn run() {
                                 if let Ok(hwnd) = window_clone.hwnd() {
                                     let height = clock_rect.bottom - clock_rect.top;
                                     let y = clock_rect.top + (height - 36) / 2;
-                                    let x = clock_rect.left - 360;
+                                    let mut x = clock_rect.right + 6;
+                                    let x_max = screen_width as i32 - 340;
+                                    if x > x_max {
+                                        x = x_max;
+                                    }
 
                                     unsafe {
                                         let _ = SetWindowPos(

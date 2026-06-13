@@ -20,15 +20,23 @@ class Sparkline {
   private lineColor: string;
   private fillColor: string;
   private isPercentage: boolean;
-  private minMax: number;
+  private scaleMin: number;
 
-  constructor(canvasId: string, lineColor: string, fillColor: string, isPercentage = false, minMax = 1) {
-    this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
-    this.ctx = this.canvas.getContext("2d")!;
+  constructor(canvasId: string, lineColor: string, fillColor: string, isPercentage = false, scaleMin = 1) {
+    const el = document.getElementById(canvasId);
+    if (!el || !(el instanceof HTMLCanvasElement)) {
+      throw new Error(`Canvas element #${canvasId} not found`);
+    }
+    this.canvas = el;
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error(`Failed to get 2D context for #${canvasId}`);
+    }
+    this.ctx = ctx;
     this.lineColor = lineColor;
     this.fillColor = fillColor;
     this.isPercentage = isPercentage;
-    this.minMax = minMax;
+    this.scaleMin = scaleMin;
 
     for (let i = 0; i < this.maxPoints; i++) {
       this.history.push(0);
@@ -69,11 +77,11 @@ class Sparkline {
     
     this.ctx.clearRect(0, 0, width, height);
 
-    let max = this.minMax;
+    let max = this.scaleMin;
     if (this.isPercentage) {
       max = 100;
     } else {
-      max = Math.max(this.minMax, ...this.history);
+      max = Math.max(this.scaleMin, ...this.history);
     }
 
     const points = this.history;
@@ -140,12 +148,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Initialize Sparklines
   const cpuSparkline = new Sparkline("graph-cpu", colors.cpu.line, colors.cpu.fill, true);
   const ramSparkline = new Sparkline("graph-ram", colors.ram.line, colors.ram.fill, true);
-  // Minmax for disk is 1MB/s, net is 100KB/s
+  // scaleMin for disk is 1MB/s, net is 100KB/s
   const diskSparkline = new Sparkline("graph-disk", colors.disk.line, colors.disk.fill, false, 1024 * 1024);
   const netSparkline = new Sparkline("graph-net", colors.net.line, colors.net.fill, false, 100 * 1024);
   const gpuSparkline = new Sparkline("graph-gpu", colors.gpu.line, colors.gpu.fill, true);
-
-
 
   // Get DOM Elements
   const cpuVal = document.getElementById("val-cpu")!;
