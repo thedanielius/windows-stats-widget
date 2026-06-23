@@ -6,13 +6,7 @@ A lightweight, always-on-top Windows taskbar overlay that shows real-time CPU, R
 
 Click-through (doesn't block mouse clicks) and stays visible above all windows.
 
-## Quick Start (for friends)
-
-**Option 1 — Pre-built EXE (easiest):**
-Just grab `release/StatsWidget.exe` — runs directly, no install needed.
-(Runs on Windows 10 1803+ / Windows 11 — WebView2 is preinstalled.)
-
-**Option 2 — Build from source:**
+## Quick Start
 
 ```bash
 git clone <repo-url>
@@ -20,9 +14,9 @@ cd stats-widget-win
 npm run package
 ```
 
-Output: `release/StatsWidget.exe`
+Output: `release/StatsWidget.exe` — runs directly, no install needed.
 
-Prerequisites: [Node.js 18+](https://nodejs.org), [Rust](https://rustup.rs)
+Prerequisites: [Node.js 18+](https://nodejs.org), [Rust](https://rustup.rs), Windows 10 1803+ / Windows 11 (WebView2 preinstalled).
 
 ## Tech Stack
 
