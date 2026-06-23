@@ -74,7 +74,7 @@ class Sparkline {
     const dpr = window.devicePixelRatio || 1;
     const width = this.canvas.width / dpr;
     const height = this.canvas.height / dpr;
-    
+
     this.ctx.clearRect(0, 0, width, height);
 
     let max = this.scaleMin;
@@ -84,19 +84,17 @@ class Sparkline {
       max = Math.max(this.scaleMin, ...this.history);
     }
 
-    const points = this.history;
-    const count = points.length;
+    const count = this.history.length;
     if (count < 2) return;
 
     const dx = width / (count - 1);
-    
+
     this.ctx.beginPath();
-    
+
     for (let i = 0; i < count; i++) {
-      const val = points[i];
       const x = i * dx;
-      const y = height - (val / max) * (height - 2) - 1;
-      
+      const y = height - (this.history[i] / max) * (height - 2) - 1;
+
       if (i === 0) {
         this.ctx.moveTo(x, y);
       } else {
@@ -105,7 +103,7 @@ class Sparkline {
     }
 
     this.ctx.strokeStyle = this.lineColor;
-    this.ctx.lineWidth = 1.0;
+    this.ctx.lineWidth = 1.5;
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
     this.ctx.stroke();
@@ -117,7 +115,7 @@ class Sparkline {
     const grad = this.ctx.createLinearGradient(0, 0, 0, height);
     grad.addColorStop(0, this.fillColor);
     grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-    
+
     this.ctx.fillStyle = grad;
     this.ctx.fill();
   }
@@ -132,57 +130,44 @@ function formatSpeed(bytes: number): string {
   return `${(mb / 1024).toFixed(1)}G`;
 }
 
-function getColors() {
-  return {
-    cpu: { line: "#00d2ff", fill: "rgba(0, 210, 255, 0.22)" },
-    ram: { line: "#00f5d4", fill: "rgba(0, 245, 212, 0.22)" },
-    disk: { line: "#ff9f1c", fill: "rgba(255, 159, 28, 0.22)" },
-    net: { line: "#4ade80", fill: "rgba(74, 222, 128, 0.22)" },
-    gpu: { line: "#d946ef", fill: "rgba(217, 70, 239, 0.22)" },
-  };
-}
+const COLORS = {
+  cpu: { line: "#00d2ff", fill: "rgba(0, 210, 255, 0.22)" },
+  ram: { line: "#00f5d4", fill: "rgba(0, 245, 212, 0.22)" },
+  disk: { line: "#ff9f1c", fill: "rgba(255, 159, 28, 0.22)" },
+  net: { line: "#4ade80", fill: "rgba(74, 222, 128, 0.22)" },
+  gpu: { line: "#d946ef", fill: "rgba(217, 70, 239, 0.22)" },
+};
 
 window.addEventListener("DOMContentLoaded", async () => {
-  let colors = getColors();
+  const cpuSparkline = new Sparkline("graph-cpu", COLORS.cpu.line, COLORS.cpu.fill, true);
+  const ramSparkline = new Sparkline("graph-ram", COLORS.ram.line, COLORS.ram.fill, true);
+  const diskSparkline = new Sparkline("graph-disk", COLORS.disk.line, COLORS.disk.fill, false, 1024 * 1024);
+  const netSparkline = new Sparkline("graph-net", COLORS.net.line, COLORS.net.fill, false, 100 * 1024);
+  const gpuSparkline = new Sparkline("graph-gpu", COLORS.gpu.line, COLORS.gpu.fill, true);
 
-  // Initialize Sparklines
-  const cpuSparkline = new Sparkline("graph-cpu", colors.cpu.line, colors.cpu.fill, true);
-  const ramSparkline = new Sparkline("graph-ram", colors.ram.line, colors.ram.fill, true);
-  // scaleMin for disk is 1MB/s, net is 100KB/s
-  const diskSparkline = new Sparkline("graph-disk", colors.disk.line, colors.disk.fill, false, 1024 * 1024);
-  const netSparkline = new Sparkline("graph-net", colors.net.line, colors.net.fill, false, 100 * 1024);
-  const gpuSparkline = new Sparkline("graph-gpu", colors.gpu.line, colors.gpu.fill, true);
-
-  // Get DOM Elements
   const cpuVal = document.getElementById("val-cpu")!;
   const ramVal = document.getElementById("val-ram")!;
   const diskVal = document.getElementById("val-disk")!;
   const netVal = document.getElementById("val-net")!;
   const gpuVal = document.getElementById("val-gpu")!;
 
-  // Listen to the stats update event from Rust
   await listen<SystemStats>("stats-update", (event) => {
     const stats = event.payload;
 
-    // Update CPU
     cpuVal.textContent = `${Math.round(stats.cpu)}%`;
     cpuSparkline.addPoint(stats.cpu);
 
-    // Update RAM
     ramVal.textContent = `${Math.round(stats.ram_pct)}%`;
     ramSparkline.addPoint(stats.ram_pct);
 
-    // Update Disk (Read + Write)
     const diskTotal = stats.disk_read + stats.disk_write;
     diskVal.textContent = formatSpeed(diskTotal);
     diskSparkline.addPoint(diskTotal);
 
-    // Update Network (Recv + Sent)
     const netTotal = stats.net_recv + stats.net_sent;
     netVal.textContent = formatSpeed(netTotal);
     netSparkline.addPoint(netTotal);
 
-    // Update GPU
     gpuVal.textContent = `${Math.round(stats.gpu)}%`;
     gpuSparkline.addPoint(stats.gpu);
   });

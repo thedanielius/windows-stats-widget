@@ -2,16 +2,17 @@ use tauri::{Emitter, Manager, WebviewWindow};
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, FindWindowExW, GetWindowRect, SetWindowPos,
-    GetForegroundWindow, GetWindowLongW, SetWindowLongW,
-    GWL_EXSTYLE, GWL_STYLE, WS_EX_TRANSPARENT, WS_EX_LAYERED,
+    GetWindowLongW, SetWindowLongW,
+    GWL_EXSTYLE, WS_EX_TRANSPARENT, WS_EX_LAYERED,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_CAPTION,
-    SWP_NOACTIVATE, SWP_NOCOPYBITS
+    SWP_NOACTIVATE, SWP_NOCOPYBITS, HWND_TOPMOST,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_FRAMECHANGED,
 };
 use windows::Win32::System::Performance::{
     PdhOpenQueryW, PdhAddEnglishCounterW, PdhCollectQueryData,
     PdhGetFormattedCounterValue, PdhGetFormattedCounterArrayW,
-    PDH_FMT_DOUBLE, PDH_HQUERY, PDH_HCOUNTER
+    PDH_FMT_DOUBLE, PDH_HQUERY, PDH_HCOUNTER,
+    PDH_FMT_COUNTERVALUE, PDH_FMT_COUNTERVALUE_ITEM_W,
 };
 use windows::core::PCWSTR;
 use sysinfo::System;
@@ -55,50 +56,6 @@ fn get_clock_rect() -> Option<RECT> {
     }
 }
 
-fn get_window_class(hwnd: HWND) -> String {
-    let mut buf = [0u16; 256];
-    let len = unsafe {
-        windows::Win32::UI::WindowsAndMessaging::GetClassNameW(hwnd, &mut buf)
-    };
-    if len > 0 {
-        String::from_utf16_lossy(&buf[..len as usize])
-    } else {
-        String::new()
-    }
-}
-
-fn is_foreground_window_fullscreen(screen_width: u32, screen_height: u32) -> bool {
-    unsafe {
-        let fg_hwnd = GetForegroundWindow();
-        if fg_hwnd.0.is_null() {
-            return false;
-        }
-
-        let mut rect = RECT::default();
-        if GetWindowRect(fg_hwnd, &mut rect).is_err() {
-            return false;
-        }
-
-        let w = rect.right - rect.left;
-        let h = rect.bottom - rect.top;
-
-        if w < screen_width as i32 || h < screen_height as i32 {
-            return false;
-        }
-
-        let class_name = get_window_class(fg_hwnd);
-        if class_name == "Progman" || class_name == "WorkerW" || class_name == "Shell_TrayWnd" {
-            return false;
-        }
-
-        let style = GetWindowLongW(fg_hwnd, GWL_STYLE) as u32;
-        let has_caption = (style & WS_CAPTION.0 as u32) != 0;
-
-        !has_caption
-    }
-}
-
-// PDH handles are raw pointers that are safe to send across threads
 struct PdhSystemQuery {
     h_query: PDH_HQUERY,
     h_disk_read: PDH_HCOUNTER,
@@ -148,11 +105,11 @@ impl PdhSystemQuery {
                 return (0.0, 0.0, 0.0);
             }
 
-            let mut read_val = windows::Win32::System::Performance::PDH_FMT_COUNTERVALUE::default();
+            let mut read_val = PDH_FMT_COUNTERVALUE::default();
             let r_status = PdhGetFormattedCounterValue(self.h_disk_read, PDH_FMT_DOUBLE, None, &mut read_val);
             let disk_read = if r_status == 0 { read_val.Anonymous.doubleValue } else { 0.0 };
 
-            let mut write_val = windows::Win32::System::Performance::PDH_FMT_COUNTERVALUE::default();
+            let mut write_val = PDH_FMT_COUNTERVALUE::default();
             let w_status = PdhGetFormattedCounterValue(self.h_disk_write, PDH_FMT_DOUBLE, None, &mut write_val);
             let disk_write = if w_status == 0 { write_val.Anonymous.doubleValue } else { 0.0 };
 
@@ -180,7 +137,7 @@ impl PdhSystemQuery {
 
                 if status == 0 && item_count > 0 {
                     let items = std::slice::from_raw_parts(
-                        buffer.as_ptr() as *const windows::Win32::System::Performance::PDH_FMT_COUNTERVALUE_ITEM_W,
+                        buffer.as_ptr() as *const PDH_FMT_COUNTERVALUE_ITEM_W,
                         item_count as usize
                     );
                     for item in items {
@@ -209,8 +166,6 @@ fn make_window_click_through(hwnd: HWND) {
         let new_style = ex_style | (WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0 | WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0) as i32;
         SetWindowLongW(hwnd, GWL_EXSTYLE, new_style);
 
-        // SetWindowPos with SWP_FRAMECHANGED to apply the new ex-styles immediately
-        use windows::Win32::UI::WindowsAndMessaging::{HWND_TOPMOST, SWP_NOMOVE, SWP_FRAMECHANGED, SWP_NOSIZE};
         let _ = SetWindowPos(
             hwnd,
             Some(HWND_TOPMOST),
@@ -223,25 +178,18 @@ fn make_window_click_through(hwnd: HWND) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let window: WebviewWindow = app.get_webview_window("main").unwrap();
 
-            // Set window as click-through on Windows
             if let Ok(hwnd) = window.hwnd() {
                 make_window_click_through(hwnd);
             }
 
             let window_clone = window.clone();
             std::thread::spawn(move || {
-                println!("[StatsWidget] Thread started, waiting 3s for WebView2...");
                 std::thread::sleep(std::time::Duration::from_secs(3));
-                println!("[StatsWidget] Init done, entering main loop");
 
-                // Use System::new() (lightweight) instead of System::new_all()
-                // which does massive process/component enumeration
                 let mut sys = System::new();
-                // Prime CPU measurement (first reading is always 0)
                 sys.refresh_cpu();
                 std::thread::sleep(std::time::Duration::from_millis(200));
 
@@ -258,24 +206,23 @@ pub fn run() {
                     screen_height = size.height;
                 }
 
-                let widget_width: i32 = 340;
+                let widget_width: i32 = 370;
                 let widget_height: i32 = 36;
                 let tray_padding: i32 = 8;
 
                 let mut was_hidden = true;
+                let mut tick: u32 = 0;
 
                 loop {
-                    let visible = window_clone.is_visible().unwrap_or(false);
-                    println!("[StatsWidget] Loop tick - visible={}, screen={}x{}", visible, screen_width, screen_height);
-
-                    // Always show — fullscreen hide disabled for debugging
-                    let _ = window_clone.show();
+                    if !window_clone.is_visible().unwrap_or(false) {
+                        let _ = window_clone.show();
+                        was_hidden = true;
+                    }
 
                     let clock_rect = get_clock_rect();
-                    println!("[StatsWidget] clock_rect = {:?}", clock_rect);
                     let (x, y) = if let Some(rect) = clock_rect {
                         let tray_height = rect.bottom - rect.top;
-                        let cy = rect.top + (tray_height - widget_height) / 2;
+                        let cy = rect.top + (tray_height - widget_height) / 2 + 2;
                         let mut cx = rect.left - widget_width - tray_padding;
                         if cx < 0 { cx = 0; }
                         (cx, cy)
@@ -284,73 +231,73 @@ pub fn run() {
                         (default_x, (screen_height as i32 - widget_height).max(0))
                     };
 
-                    let clock_changed = clock_rect.map_or(true, |r| {
+                    let clock_changed = clock_rect.is_none_or(|r| {
                         r.left != last_clock_rect.left
                             || r.top != last_clock_rect.top
                             || r.right != last_clock_rect.right
                             || r.bottom != last_clock_rect.bottom
                     });
 
+                    if let Ok(hwnd) = window_clone.hwnd() {
+                        unsafe {
+                            let _ = SetWindowPos(
+                                hwnd,
+                                Some(HWND_TOPMOST),
+                                x, y,
+                                widget_width, widget_height,
+                                SWP_NOACTIVATE | SWP_NOCOPYBITS
+                            );
+                        }
+                    }
+
                     if clock_changed || was_hidden {
-                        println!("[StatsWidget] Repositioning: clock_changed={}, was_hidden={}, pos=({},{})", clock_changed, was_hidden, x, y);
                         if let Some(r) = clock_rect {
                             last_clock_rect = r;
-                        }
-                        if let Ok(hwnd) = window_clone.hwnd() {
-                            unsafe {
-                                use windows::Win32::UI::WindowsAndMessaging::HWND_TOPMOST;
-                                let result = SetWindowPos(
-                                    hwnd,
-                                    Some(HWND_TOPMOST),
-                                    x, y,
-                                    widget_width, widget_height,
-                                    SWP_NOACTIVATE | SWP_NOCOPYBITS
-                                );
-                                println!("[StatsWidget] SetWindowPos TOPMOST result: {:?}", result);
-                            }
                         }
                         was_hidden = false;
                     }
 
-                    // Poll and refresh stats
-                    sys.refresh_cpu();
-                    sys.refresh_memory();
-                    networks.refresh();
+                    if tick.is_multiple_of(2) {
+                        sys.refresh_cpu();
+                        sys.refresh_memory();
+                        networks.refresh();
 
-                    let cpu = sys.global_cpu_info().cpu_usage();
+                        let cpu = sys.global_cpu_info().cpu_usage();
 
-                    let total_mem = sys.total_memory() as f64;
-                    let used_mem = (sys.total_memory() - sys.free_memory()) as f64;
-                    let ram_pct = if total_mem > 0.0 { (used_mem / total_mem) * 100.0 } else { 0.0 } as f32;
+                        let total_mem = sys.total_memory() as f64;
+                        let used_mem = (sys.total_memory() - sys.free_memory()) as f64;
+                        let ram_pct = if total_mem > 0.0 { (used_mem / total_mem) * 100.0 } else { 0.0 } as f32;
 
-                    let mut net_recv = 0.0;
-                    let mut net_sent = 0.0;
-                    for (_name, net) in &networks {
-                        net_recv += net.received() as f64;
-                        net_sent += net.transmitted() as f64;
+                        let mut net_recv = 0.0f64;
+                        let mut net_sent = 0.0f64;
+                        for (_name, net) in &networks {
+                            net_recv += net.received() as f64;
+                            net_sent += net.transmitted() as f64;
+                        }
+
+                        let (disk_read, disk_write, gpu) = if let Some(ref q) = pdh_query {
+                            q.poll()
+                        } else {
+                            (0.0, 0.0, 0.0)
+                        };
+
+                        let stats = SystemStats {
+                            cpu,
+                            ram_pct,
+                            ram_used: used_mem / (1024.0 * 1024.0 * 1024.0),
+                            ram_total: total_mem / (1024.0 * 1024.0 * 1024.0),
+                            disk_read,
+                            disk_write,
+                            net_recv,
+                            net_sent,
+                            gpu,
+                        };
+
+                        let _ = window_clone.emit("stats-update", stats);
                     }
 
-                    let (disk_read, disk_write, gpu) = if let Some(ref q) = pdh_query {
-                        q.poll()
-                    } else {
-                        (0.0, 0.0, 0.0)
-                    };
-
-                    let stats = SystemStats {
-                        cpu,
-                        ram_pct,
-                        ram_used: used_mem / (1024.0 * 1024.0 * 1024.0),
-                        ram_total: total_mem / (1024.0 * 1024.0 * 1024.0),
-                        disk_read,
-                        disk_write,
-                        net_recv,
-                        net_sent,
-                        gpu,
-                    };
-
-                    let _ = window_clone.emit("stats-update", stats);
-
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    tick += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(500));
                 }
             });
 

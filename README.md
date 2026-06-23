@@ -1,8 +1,28 @@
 # StatsWidget
 
-A lightweight, always-on-top system monitor widget that overlays real-time hardware stats (CPU, RAM, Disk, Network, GPU) on your Windows taskbar.
+![screenshot](image.png)
 
-Sits between your taskbar apps and the system tray, stays click-through (doesn't block mouse), and auto-hides when a fullscreen game or video is active.
+A lightweight, always-on-top Windows taskbar overlay that shows real-time CPU, RAM, Disk I/O, Network, and GPU usage with sparkline graphs.
+
+Click-through (doesn't block mouse clicks) and stays visible above all windows.
+
+## Quick Start (for friends)
+
+**Option 1 — Pre-built EXE (easiest):**
+Just grab `release/StatsWidget.exe` — runs directly, no install needed.
+(Runs on Windows 10 1803+ / Windows 11 — WebView2 is preinstalled.)
+
+**Option 2 — Build from source:**
+
+```bash
+git clone <repo-url>
+cd stats-widget-win
+npm run package
+```
+
+Output: `release/StatsWidget.exe`
+
+Prerequisites: [Node.js 18+](https://nodejs.org), [Rust](https://rustup.rs)
 
 ## Tech Stack
 
@@ -13,61 +33,28 @@ Sits between your taskbar apps and the system tray, stays click-through (doesn't
 | Frontend | TypeScript + HTML + CSS |
 | Bundler | Vite |
 
-## Prerequisites
-
-- [Node.js](https://nodejs.org) 18+
-- [Rust](https://rustup.rs) (stable)
-- Windows 10 1803+ or Windows 11 (WebView2 is preinstalled)
-
-## Getting Started
-
-```bash
-npm install          # install frontend dependencies
-```
-
 ## NPM Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server only (frontend at `http://localhost:1420`) |
-| `npm run tauri dev` | Start full Tauri app in dev mode (hot-reload, shows the widget window) |
-| `npm run build` | Build frontend only (`tsc` + `vite build` → `dist/`) |
-| `npm run tauri build` | Build full app (frontend + Rust → portable EXE) |
-| `npm run build:release` | Build frontend + Tauri in one step |
-| `npm run package` | Clean old build, build everything, copy EXE to `release/` |
-| `npm run preview` | Preview the built frontend in a browser |
-
-## Dev Mode
-
-```bash
-npm run tauri dev
-```
-
-This opens the widget window directly. The Vite dev server auto-reloads the frontend on file changes.
-
-## Building (Portable EXE)
-
-```bash
-npm run package
-```
-
-Output: `release/StatsWidget.exe` — runs directly, no install required.
-
-The build script:
-1. Cleans `src-tauri/target/release/`
-2. Builds frontend (`tsc && vite build`)
-3. Builds Rust backend and bundles into EXE
-4. Copies to `release/StatsWidget.exe`
+| `npm run tauri dev` | Dev mode with hot-reload |
+| `npm run package` | Build production EXE into `release/` |
+| `npm run build` | Frontend only (`tsc && vite build`) |
+| `npm run preview` | Preview frontend in browser |
 
 ## How It Works
 
-- The widget finds the Windows taskbar's notification area (system tray) via Win32 APIs
-- Positions itself to the left of the system tray with 8px padding
-- Sets the window as click-through (mouse events pass through)
+- Finds the system tray clock via Win32 APIs and sits to its left
+- Click-through window (mouse events pass through to the taskbar)
+- Checks visibility and maintains topmost Z-order every 500ms
 - Polls CPU/RAM/Network via `sysinfo`, Disk/GPU via Windows PDH every 1 second
-- Auto-hides when a true fullscreen app (game, video) is foreground — checks for missing caption bar and resize border to distinguish from maximized windows
-- Text and mini sparklines render via Canvas in the transparent Tauri webview
+- Text values and sparklines rendered on Canvas in a transparent Tauri webview
 
-## License
+## Project Structure
 
-MIT
+```
+src/                  # Frontend (TypeScript, CSS)
+src-tauri/src/        # Backend (Rust)
+src-tauri/tauri.conf.json  # Window config (370×36, transparent, always-on-top)
+build.ps1             # Windows build script
+```

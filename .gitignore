@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Build output
+release/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+
+# Windows
+Thumbs.db
+*.user
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

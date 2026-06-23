@@ -10,11 +10,10 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [
       {
         "title": "StatsWidget",
-        "width": 340,
+        "width": 370,
         "height": 36,
         "decorations": false,
         "transparent": true,
@@ -25,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
     }
   },
   "bundle": {

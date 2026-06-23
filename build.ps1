@@ -1,9 +1,6 @@
-# StatsWidget - Windows Build Script
-# Run this from PowerShell:
-#   powershell -ExecutionPolicy Bypass -File build.ps1
-#
-# Output:
-#   - release/StatsWidget.exe          (portable, send this to friends)
+# StatsWidget Build Script
+# powershell -ExecutionPolicy Bypass -File build.ps1
+# Output: release/StatsWidget.exe
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -11,7 +8,6 @@ Set-Location $projectRoot
 
 Write-Host "=== StatsWidget Build Script ===" -ForegroundColor Cyan
 
-# ---------- 1. Check prerequisites ----------
 Write-Host "`n[1/5] Checking prerequisites..." -ForegroundColor Yellow
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -32,19 +28,15 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
 }
 Write-Host "  npm     : $(npm --version)"
 
-# ---------- 2. Install dependencies ----------
 Write-Host "`n[2/5] Installing npm dependencies..." -ForegroundColor Yellow
 npm install
 
-# ---------- 3. Build the frontend ----------
 Write-Host "`n[3/5] Building frontend (Vite + TypeScript)..." -ForegroundColor Yellow
 npm run build
 
-# ---------- 4. Build Tauri (Rust + bundle) ----------
-Write-Host "`n[4/5] Building Tauri app (this may take several minutes on first run)..." -ForegroundColor Yellow
+Write-Host "`n[4/5] Building Tauri app..." -ForegroundColor Yellow
 npx tauri build 2>&1 | ForEach-Object { Write-Host "  $_" }
 
-# ---------- 5. Collect output ----------
 Write-Host "`n[5/5] Collecting outputs..." -ForegroundColor Yellow
 
 $releaseDir = Join-Path $projectRoot "release"
@@ -67,12 +59,9 @@ if (Test-Path $builtExe) {
     }
 }
 
-# ---------- Done ----------
 Write-Host "`n=== Build complete ===" -ForegroundColor Cyan
-Write-Host ""
 Write-Host "  Portable EXE : release/StatsWidget.exe"
-Write-Host "     (Runs directly - no install required)"
-Write-Host "     (Requires WebView2 -- preinstalled on Win 10 1803+ / Win 11)"
+Write-Host "  (No install required. Requires WebView2 - preinstalled on Win 10 1803+/Win 11)"
 Write-Host ""
 Write-Host "Press any key to open the release folder..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

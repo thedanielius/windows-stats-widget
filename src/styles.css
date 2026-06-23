@@ -8,9 +8,9 @@
 
 body {
   margin: 0;
-  padding: 0;
+  padding: 3px 0 0 0;
   background: rgba(24, 24, 28, 0.72);
-  width: 340px;
+  width: 370px;
   height: 36px;
   display: flex;
   align-items: center;
@@ -21,12 +21,13 @@ body {
 .stats-container {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
-  width: 340px;
-  height: 36px;
-  padding: 0 8px;
-  box-sizing: border-box;
+  justify-content: flex-start;
   align-items: center;
+  gap: 6px;
+  width: 370px;
+  height: 36px;
+  padding: 0 10px;
+  box-sizing: border-box;
 }
 
 .stat-col {
@@ -43,10 +44,11 @@ body {
   justify-content: space-between;
   align-items: baseline;
   width: 100%;
+  padding: 0 3px;
   margin-bottom: 2px;
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  box-sizing: border-box;
 }
 
 .stat-label {
