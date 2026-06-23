@@ -1,10 +1,9 @@
 # StatsWidget - Windows Build Script
-# Run this from an ADMIN PowerShell or regular PowerShell:
+# Run this from PowerShell:
 #   powershell -ExecutionPolicy Bypass -File build.ps1
 #
 # Output:
 #   - release/StatsWidget.exe          (portable, send this to friends)
-#   - release/StatsWidget_Setup.exe    (NSIS installer)
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -53,31 +52,18 @@ if (-not (Test-Path $releaseDir)) {
     New-Item -ItemType Directory -Path $releaseDir | Out-Null
 }
 
-# The standalone exe (Tauri embeds all web assets into the binary)
-$builtExe = Join-Path $projectRoot "src-tauri\target\release\tauri-app.exe"
+$builtExe = Join-Path $projectRoot "src-tauri\target\release\StatsWidget.exe"
 if (Test-Path $builtExe) {
     Copy-Item $builtExe (Join-Path $releaseDir "StatsWidget.exe") -Force
     Write-Host "  [OK] Portable EXE : release/StatsWidget.exe" -ForegroundColor Green
 } else {
-    Write-Host "  [!!] Standalone exe not found at: $builtExe" -ForegroundColor Red
-    Write-Host "       Check src-tauri/target/release/ for the .exe" -ForegroundColor Red
-}
-
-# The NSIS installer
-$nsisInstaller = Join-Path $projectRoot "src-tauri\target\release\bundle\nsis\StatsWidget_0.1.0_x64-setup.exe"
-if (Test-Path $nsisInstaller) {
-    Copy-Item $nsisInstaller (Join-Path $releaseDir "StatsWidget_Setup.exe") -Force
-    Write-Host "  [OK] NSIS Setup  : release/StatsWidget_Setup.exe" -ForegroundColor Green
-} else {
-    # Try glob for any NSIS output
-    $nsisDir = Join-Path $projectRoot "src-tauri\target\release\bundle\nsis"
-    if (Test-Path $nsisDir) {
-        Get-ChildItem $nsisDir -Filter "*.exe" | ForEach-Object {
-            Copy-Item $_.FullName (Join-Path $releaseDir $_.Name) -Force
-            Write-Host "  [OK] NSIS Setup  : release/$($_.Name)" -ForegroundColor Green
-        }
+    $fallbackExe = Join-Path $projectRoot "src-tauri\target\release\tauri-app.exe"
+    if (Test-Path $fallbackExe) {
+        Copy-Item $fallbackExe (Join-Path $releaseDir "StatsWidget.exe") -Force
+        Write-Host "  [OK] Portable EXE : release/StatsWidget.exe" -ForegroundColor Green
     } else {
-        Write-Host "  [!!] NSIS installer not found." -ForegroundColor Red
+        Write-Host "  [!!] Standalone exe not found." -ForegroundColor Red
+        Write-Host "       Check src-tauri/target/release/ for the .exe" -ForegroundColor Red
     }
 }
 
@@ -85,11 +71,8 @@ if (Test-Path $nsisInstaller) {
 Write-Host "`n=== Build complete ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Portable EXE : release/StatsWidget.exe"
-Write-Host "     (Send this directly to friends)"
+Write-Host "     (Runs directly - no install required)"
 Write-Host "     (Requires WebView2 -- preinstalled on Win 10 1803+ / Win 11)"
-Write-Host ""
-Write-Host "  NSIS Installer : release/StatsWidget_Setup.exe"
-Write-Host "     (Standard installer with start menu shortcut)"
 Write-Host ""
 Write-Host "Press any key to open the release folder..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

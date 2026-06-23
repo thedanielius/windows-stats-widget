@@ -3,7 +3,10 @@ use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, FindWindowExW, GetWindowRect, SetWindowPos,
     GetForegroundWindow, GetWindowLongW, SetWindowLongW,
-    GWL_EXSTYLE, WS_EX_TRANSPARENT, WS_EX_LAYERED, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW
+    GWL_EXSTYLE, GWL_STYLE, WS_EX_TRANSPARENT, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    WS_CAPTION,
+    SWP_NOACTIVATE, SWP_NOCOPYBITS
 };
 use windows::Win32::System::Performance::{
     PdhOpenQueryW, PdhAddEnglishCounterW, PdhCollectQueryData,
@@ -72,18 +75,26 @@ fn is_foreground_window_fullscreen(screen_width: u32, screen_height: u32) -> boo
         }
 
         let mut rect = RECT::default();
-        if GetWindowRect(fg_hwnd, &mut rect).is_ok() {
-            let w = rect.right - rect.left;
-            let h = rect.bottom - rect.top;
-
-            if w >= screen_width as i32 && h >= screen_height as i32 {
-                let class_name = get_window_class(fg_hwnd);
-                if class_name != "Progman" && class_name != "WorkerW" && class_name != "Shell_TrayWnd" {
-                    return true;
-                }
-            }
+        if GetWindowRect(fg_hwnd, &mut rect).is_err() {
+            return false;
         }
-        false
+
+        let w = rect.right - rect.left;
+        let h = rect.bottom - rect.top;
+
+        if w < screen_width as i32 || h < screen_height as i32 {
+            return false;
+        }
+
+        let class_name = get_window_class(fg_hwnd);
+        if class_name == "Progman" || class_name == "WorkerW" || class_name == "Shell_TrayWnd" {
+            return false;
+        }
+
+        let style = GetWindowLongW(fg_hwnd, GWL_STYLE) as u32;
+        let has_caption = (style & WS_CAPTION.0 as u32) != 0;
+
+        !has_caption
     }
 }
 
@@ -195,10 +206,16 @@ impl PdhSystemQuery {
 fn make_window_click_through(hwnd: HWND) {
     unsafe {
         let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
-        SetWindowLongW(
+        let new_style = ex_style | (WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0 | WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0) as i32;
+        SetWindowLongW(hwnd, GWL_EXSTYLE, new_style);
+
+        // SetWindowPos with SWP_FRAMECHANGED to apply the new ex-styles immediately
+        use windows::Win32::UI::WindowsAndMessaging::{HWND_TOPMOST, SWP_NOMOVE, SWP_FRAMECHANGED, SWP_NOSIZE};
+        let _ = SetWindowPos(
             hwnd,
-            GWL_EXSTYLE,
-            ex_style | (WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0) as i32
+            Some(HWND_TOPMOST),
+            0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED
         );
     }
 }
@@ -217,10 +234,9 @@ pub fn run() {
 
             let window_clone = window.clone();
             std::thread::spawn(move || {
-                // CRITICAL: Wait for WebView2 to fully initialize before touching
-                // any Win32 system APIs. System::new() and PDH both call heavy
-                // Win32 enumeration that races with WebView2 compositor init.
+                println!("[StatsWidget] Thread started, waiting 3s for WebView2...");
                 std::thread::sleep(std::time::Duration::from_secs(3));
+                println!("[StatsWidget] Init done, entering main loop");
 
                 // Use System::new() (lightweight) instead of System::new_all()
                 // which does massive process/component enumeration
@@ -242,45 +258,58 @@ pub fn run() {
                     screen_height = size.height;
                 }
 
+                let widget_width: i32 = 340;
+                let widget_height: i32 = 36;
+                let tray_padding: i32 = 8;
+
+                let mut was_hidden = true;
+
                 loop {
-                    // Check if foreground window is fullscreen
-                    let is_fullscreen = is_foreground_window_fullscreen(screen_width, screen_height);
-                    if is_fullscreen {
-                        let _ = window_clone.hide();
+                    let visible = window_clone.is_visible().unwrap_or(false);
+                    println!("[StatsWidget] Loop tick - visible={}, screen={}x{}", visible, screen_width, screen_height);
+
+                    // Always show — fullscreen hide disabled for debugging
+                    let _ = window_clone.show();
+
+                    let clock_rect = get_clock_rect();
+                    println!("[StatsWidget] clock_rect = {:?}", clock_rect);
+                    let (x, y) = if let Some(rect) = clock_rect {
+                        let tray_height = rect.bottom - rect.top;
+                        let cy = rect.top + (tray_height - widget_height) / 2;
+                        let mut cx = rect.left - widget_width - tray_padding;
+                        if cx < 0 { cx = 0; }
+                        (cx, cy)
                     } else {
-                        let _ = window_clone.show();
+                        let default_x = (screen_width as i32 - widget_width - 60).max(0);
+                        (default_x, (screen_height as i32 - widget_height).max(0))
+                    };
 
-                        // Recalculate positioning based on clock rectangle changes
-                        if let Some(clock_rect) = get_clock_rect() {
-                            if clock_rect.left != last_clock_rect.left
-                                || clock_rect.top != last_clock_rect.top
-                                || clock_rect.right != last_clock_rect.right
-                                || clock_rect.bottom != last_clock_rect.bottom
-                            {
-                                last_clock_rect = clock_rect;
-                                if let Ok(hwnd) = window_clone.hwnd() {
-                                    let height = clock_rect.bottom - clock_rect.top;
-                                    let y = clock_rect.top + (height - 36) / 2;
-                                    let mut x = clock_rect.right + 6;
-                                    let x_max = screen_width as i32 - 340;
-                                    if x > x_max {
-                                        x = x_max;
-                                    }
+                    let clock_changed = clock_rect.map_or(true, |r| {
+                        r.left != last_clock_rect.left
+                            || r.top != last_clock_rect.top
+                            || r.right != last_clock_rect.right
+                            || r.bottom != last_clock_rect.bottom
+                    });
 
-                                    unsafe {
-                                        let _ = SetWindowPos(
-                                            hwnd,
-                                            None,
-                                            x,
-                                            y,
-                                            340,
-                                            36,
-                                            SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE | SWP_SHOWWINDOW
-                                        );
-                                    }
-                                }
+                    if clock_changed || was_hidden {
+                        println!("[StatsWidget] Repositioning: clock_changed={}, was_hidden={}, pos=({},{})", clock_changed, was_hidden, x, y);
+                        if let Some(r) = clock_rect {
+                            last_clock_rect = r;
+                        }
+                        if let Ok(hwnd) = window_clone.hwnd() {
+                            unsafe {
+                                use windows::Win32::UI::WindowsAndMessaging::HWND_TOPMOST;
+                                let result = SetWindowPos(
+                                    hwnd,
+                                    Some(HWND_TOPMOST),
+                                    x, y,
+                                    widget_width, widget_height,
+                                    SWP_NOACTIVATE | SWP_NOCOPYBITS
+                                );
+                                println!("[StatsWidget] SetWindowPos TOPMOST result: {:?}", result);
                             }
                         }
+                        was_hidden = false;
                     }
 
                     // Poll and refresh stats

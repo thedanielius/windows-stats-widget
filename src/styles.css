@@ -1,7 +1,7 @@
 :root {
   font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.95);
   user-select: none;
   overflow: hidden;
 }
@@ -9,12 +9,13 @@
 body {
   margin: 0;
   padding: 0;
-  background: transparent;
+  background: rgba(24, 24, 28, 0.72);
   width: 340px;
   height: 36px;
   display: flex;
   align-items: center;
   overflow: hidden;
+  border-radius: 6px;
 }
 
 .stats-container {
@@ -23,7 +24,7 @@ body {
   justify-content: space-between;
   width: 340px;
   height: 36px;
-  padding: 0 4px;
+  padding: 0 8px;
   box-sizing: border-box;
   align-items: center;
 }
@@ -49,14 +50,12 @@ body {
 }
 
 .stat-label {
-  color: rgba(255, 255, 255, 0.6);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  color: rgba(180, 185, 200, 0.85);
 }
 
 .stat-value {
   color: rgba(255, 255, 255, 0.95);
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
 }
 
 .stat-graph {
@@ -64,7 +63,4 @@ body {
   width: 54px;
   height: 16px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 0 1px rgba(255, 255, 255, 0.05);
 }
-
